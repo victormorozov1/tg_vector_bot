@@ -1,24 +1,28 @@
 import json
+import logging
 import os
 import requests
 import telebot
 import threading
 import time
 from collections import defaultdict
-from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential
 
 from constants import *
 
-bot = telebot.TeleBot(TELEGRAM_TOKEN)
-
 if not os.path.exists('logs'):
     os.makedirs('logs')
 
+bot = telebot.TeleBot(TELEGRAM_TOKEN)
 
-def log_message(chat_id, message):
-    with open(f'logs/{message.chat.username}_{chat_id}.txt', 'a') as f:
-        f.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")} : {message.text}\n')
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.INFO)
+file_handler = logging.FileHandler(f'logs/{__name__}.log')
+stream_handler = logging.StreamHandler()
+file_handler.setLevel(logging.INFO)
+stream_handler.setLevel(logging.INFO)
+logger.addHandler(file_handler)
+logger.addHandler(stream_handler)
 
 
 @retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=4, max=10))
@@ -100,10 +104,12 @@ feedback_scheduled = defaultdict(lambda: threading.Timer(0, lambda: None))
 @bot.message_handler(func=lambda m: True)
 def echo_all(message):
     try:
-        log_message(message.chat.id, message)
-        print("Сообщение пришло в: " + str(datetime.strftime(datetime.now(), "%H:%M:%S")))
-        print("Текст сообщения: " + str(message.text))
-        print(message.chat.id)
+        logger.info(
+            'Receive message: chat_id=%d, user=%s, text="%s"',
+            message.chat.id,
+            message.chat.username,
+            message.text,
+        )
 
         if user_data[message.chat.id].get('feedback_requested') and message.text.isdigit() and 1 <= int(
                 message.text) <= 5:
@@ -150,8 +156,6 @@ def echo_all(message):
             user_data[message.chat.id]['button_send'] = False
         else:
             data = get_answer(str(message.text))
-            print(type(data))
-            print(data)
 
             if data.get('answer'):
                 safe_send_message(message.chat.id, data['answer'])
@@ -173,33 +177,9 @@ def echo_all(message):
 
         schedule_feedback(message.chat.id)
 
-    except requests.RequestException as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка при обращении к серверу: {e}')
-        print(f"RequestException: {e}")
-    except telebot.apihelper.ApiException as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка при обработке сообщения: {e}')
-        print(f"ApiException: {e}")
-    except json.JSONDecodeError as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка декодирования JSON: {e}')
-        print(f"JSONDecodeError: {e}")
-    except ValueError as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка значения: {e}')
-        print(f"ValueError: {e}")
-    except TypeError as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка типа: {e}')
-        print(f"TypeError: {e}")
-    except KeyError as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка ключа: {e}')
-        print(f"KeyError: {e}")
-    except IndexError as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка индекса: {e}')
-        print(f"IndexError: {e}")
-    except OSError as e:
-        send_message_with_retry(ADMIN_ID, f'Ошибка ОС: {e}')
-        print(f"OSError: {e}")
     except Exception as e:
-        send_message_with_retry(ADMIN_ID, f'Непредвиденная ошибка: {e}')
-        print(f"Exception: {e}")
+        send_message_with_retry(ADMIN_ID, f'Ошибка: {e}')
+        logger.critical(repr(e))
 
 
 while True:
@@ -208,12 +188,12 @@ while True:
     except telebot.apihelper.ApiException as e:
         if e.result.status_code == 429:
             sleep_time = e.result.json()['parameters']['retry_after']
-            print(f"Too many requests! Sleeping for {sleep_time} seconds")
+            logger.warning(f'Too many requests! Sleeping for {sleep_time} seconds')
             time.sleep(sleep_time)
         else:
             send_message_with_retry(ADMIN_ID, f'Ошибка API Telegram: {e}')
-            print(f"ApiException: {e}")
+            logger.warning(repr(e))
     except Exception as e:
         send_message_with_retry(ADMIN_ID, f'Непредвиденная ошибка: {e}')
-        print(f"Exception: {e}")
+        logger.warning(repr(e))
         time.sleep(15)  # Добавляем задержку перед повторной
