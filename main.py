@@ -180,4 +180,7 @@ def echo_all(message):
 
 
 if __name__ == '__main__':
-    bot.polling(none_stop=True)
+    try:
+        bot.polling(none_stop=True)
+    except Exception as e:
+        logger.critical('Bot stopped due to %s', repr(e))
