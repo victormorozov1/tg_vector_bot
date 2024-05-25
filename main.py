@@ -1,12 +1,12 @@
-import telebot
-from datetime import datetime
-import requests
-from collections import defaultdict
+import json
 import os
+import requests
+import telebot
 import threading
 import time
+from collections import defaultdict
+from datetime import datetime
 from tenacity import retry, stop_after_attempt, wait_exponential
-import json
 
 HOST = 'http://158.160.126.20:8080'
 ASK_QUESTION_URL = f'{HOST}/api/ask_question'
