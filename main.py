@@ -20,9 +20,11 @@ bot = telebot.TeleBot(TELEGRAM_TOKEN)
 if not os.path.exists('logs'):
     os.makedirs('logs')
 
+
 def log_message(chat_id, message):
     with open(f'logs/{message.chat.username}_{chat_id}.txt', 'a') as f:
         f.write(f'{datetime.now().strftime("%Y-%m-%d %H:%M:%S")} : {message.text}\n')
+
 
 @retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=4, max=10))
 def get_answer(question: str) -> dict:
@@ -30,17 +32,20 @@ def get_answer(question: str) -> dict:
     response.raise_for_status()
     return response.json()
 
+
 def get_topic_id_from_possible_answers_by_topic(topic: str, data: dict):
     for i in data['possible_answers']:
         if i['topic'] == topic:
             return i['topic_id']
     return None
 
+
 def get_data_from_possible_answers_by_topic_id(topic_id: int, data: dict):
     for i in data['possible_answers']:
         if i['topic_id'] == topic_id:
             return i
     return None
+
 
 def ask_for_feedback(chat_id):
     if feedback_scheduled[chat_id]:
@@ -50,15 +55,18 @@ def ask_for_feedback(chat_id):
         send_message_with_retry(chat_id, "Оцените пожалуйста нашу работу:", reply_markup=keyboard)
         user_data[chat_id]['feedback_requested'] = True
 
+
 def schedule_feedback(chat_id):
     if feedback_scheduled[chat_id]:
         feedback_scheduled[chat_id].cancel()
     feedback_scheduled[chat_id] = threading.Timer(1 * 30, ask_for_feedback, args=(chat_id,))
     feedback_scheduled[chat_id].start()
 
+
 def record_feedback(chat_id, rating):
     with open('feedback.txt', 'a') as f:
         f.write(f'{chat_id}: {rating}\n')
+
 
 def send_message_with_retry(chat_id, text, *args, **kwargs):
     retry_attempts = 10
@@ -78,6 +86,7 @@ def send_message_with_retry(chat_id, text, *args, **kwargs):
             print(f"Exception during sending message: {e}")
             time.sleep(2 ** attempt)
 
+
 def safe_send_message(chat_id, text, *args, **kwargs):
     try:
         send_message_with_retry(chat_id, text, *args, **kwargs)
@@ -88,8 +97,10 @@ def safe_send_message(chat_id, text, *args, **kwargs):
             feedback_scheduled[chat_id].cancel()
             user_data[chat_id]['feedback_requested'] = False
 
+
 user_data = defaultdict(dict)
 feedback_scheduled = defaultdict(lambda: threading.Timer(0, lambda: None))
+
 
 @bot.message_handler(func=lambda m: True)
 def echo_all(message):
@@ -99,7 +110,8 @@ def echo_all(message):
         print("Текст сообщения: " + str(message.text))
         print(message.chat.id)
 
-        if user_data[message.chat.id].get('feedback_requested') and message.text.isdigit() and 1 <= int(message.text) <= 5:
+        if user_data[message.chat.id].get('feedback_requested') and message.text.isdigit() and 1 <= int(
+                message.text) <= 5:
             record_feedback(message.chat.id, message.text)
             safe_send_message(message.chat.id, 'Спасибо за вашу оценку! \nВаша оценка была записана.')
             return
@@ -125,7 +137,8 @@ def echo_all(message):
                 except requests.RequestException as e:
                     safe_send_message(ADMIN_ID, f'Ошибка при обращении к серверу: {e}')
             else:
-                safe_send_message(message.chat.id, 'Мы рассмотрим ваш вопрос и постараемся добавить ответ на него в нашу базу данных')
+                safe_send_message(message.chat.id,
+                                  'Мы рассмотрим ваш вопрос и постараемся добавить ответ на него в нашу базу данных')
                 try:
                     response = requests.post(
                         CREATE_UNKNOWN_QUESTION_URL,
@@ -155,7 +168,9 @@ def echo_all(message):
                     keyboard.add(button)
                 keyboard.add('Ни один из вариантов не подошел')
 
-                safe_send_message(message.chat.id, "К сожалению, я не понял ваш вопрос, выберите один из вариантов предложенных ниже", reply_markup=keyboard)
+                safe_send_message(message.chat.id,
+                                  "К сожалению, я не понял ваш вопрос, выберите один из вариантов предложенных ниже",
+                                  reply_markup=keyboard)
 
                 user_data[message.chat.id] = data
                 user_data[message.chat.id]['button_send'] = True
@@ -190,6 +205,7 @@ def echo_all(message):
     except Exception as e:
         send_message_with_retry(ADMIN_ID, f'Непредвиденная ошибка: {e}')
         print(f"Exception: {e}")
+
 
 while True:
     try:
