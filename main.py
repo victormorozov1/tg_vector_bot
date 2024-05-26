@@ -75,7 +75,7 @@ def record_feedback(chat_id, rating):
 
 
 def send_message_with_retry(chat_id, text, *args, **kwargs):
-    retry_attempts = 10
+    retry_attempts = 50
     for attempt in range(retry_attempts):
         try:
             bot.send_message(chat_id, text, *args, **kwargs)
@@ -83,7 +83,7 @@ def send_message_with_retry(chat_id, text, *args, **kwargs):
         except telebot.apihelper.ApiException as e:
             if e.result.status_code == 429:
                 sleep_time = e.result.json()['parameters']['retry_after']
-                logging.warning('Too many requests! Sleeping for %d seconds', sleep_time)
+                logger.warning('Too many requests! Sleeping for %d seconds', sleep_time)
                 time.sleep(sleep_time)
             else:
                 sleep_seconds = 2 ** attempt
@@ -91,7 +91,7 @@ def send_message_with_retry(chat_id, text, *args, **kwargs):
                 time.sleep(sleep_seconds)
         except Exception as e:
             sleep_seconds = 2 ** attempt
-            logging.critical(
+            logger.critical(
                 'Unexpected error during sending message %s, sleep for %d seconds', repr(e), sleep_seconds,
             )
             time.sleep(sleep_seconds)
@@ -181,6 +181,7 @@ def echo_all(message):
 
 if __name__ == '__main__':
     try:
-        bot.polling(none_stop=True)
+        bot.polling(none_stop=True)  # TODO: none_stop убрать
     except Exception as e:
         logger.critical('Bot stopped due to %s', repr(e))
+        raise
