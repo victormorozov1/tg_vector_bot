@@ -101,6 +101,22 @@ def send_message_with_retry(chat_id, text, *args, **kwargs):
             time.sleep(sleep_seconds)
 
 
+def create_unknown_question(user_question: str, select_topic_id: int | None) -> None:
+    try:
+        logger.info('Создаем неизвестный вопрос %s', user_question)
+        response = requests.post(
+            CREATE_UNKNOWN_QUESTION_URL,
+            json={
+                'question':user_question,
+                'select_topic': select_topic_id,
+            },
+            headers={'Authorization': API_USER_AUTH_STRING},
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        logger.warning('Ошибка при создании вопроса в апи векторизации: %s', repr(e))
+
+
 user_data = defaultdict(dict)
 feedback_scheduled = defaultdict(lambda: threading.Timer(0, lambda: None))
 
@@ -128,33 +144,11 @@ def echo_all(message):
 
         if possible_answer is not None:
             send_message_with_retry(message.chat.id, possible_answer['answer'])
-            try:
-                response = requests.post(
-                    CREATE_UNKNOWN_QUESTION_URL,
-                    json={
-                        'question': data['user_question'],
-                        'select_topic': topic_id,
-                    },
-                    headers={'Authorization': API_USER_AUTH_STRING},
-                )
-                response.raise_for_status()
-            except requests.RequestException as e:
-                send_message_with_retry(ADMIN_ID, f'Ошибка при обращении к серверу: {e}')
         else:
             send_message_with_retry(message.chat.id,
                               'Мы рассмотрим ваш вопрос и постараемся добавить ответ на него в нашу базу данных')
-            try:
-                response = requests.post(
-                    CREATE_UNKNOWN_QUESTION_URL,
-                    json={
-                        'question': data['user_question'],
-                        'select_topic': None,
-                    },
-                    headers={'Authorization': API_USER_AUTH_STRING},
-                )
-                response.raise_for_status()
-            except requests.RequestException as e:
-                send_message_with_retry(ADMIN_ID, f'Ошибка при обращении к серверу: {e}')
+
+        create_unknown_question(data['user_question'], topic_id)
 
         user_data[message.chat.id]['button_send'] = False
     else:
