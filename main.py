@@ -31,6 +31,10 @@ logger.addHandler(file_handler)
 logger.addHandler(stream_handler)
 logger.addHandler(telegram_handler)
 
+telebot_logger = logging.getLogger('TeleBot')
+telebot_logger.setLevel(logging.WARNING)
+telebot_logger.addHandler(telegram_handler)
+
 
 @retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=4, max=10))
 def get_answer(question: str) -> dict:
