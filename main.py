@@ -21,7 +21,7 @@ logger.setLevel(logging.INFO)
 
 file_handler = logging.FileHandler(f'logs/{__name__}.log')
 stream_handler = logging.StreamHandler()
-telegram_handler = TelegramHandler(partial(bot.send_message, '@abobafrompsu'))
+telegram_handler = TelegramHandler(bot)
 
 file_handler.setLevel(logging.INFO)
 stream_handler.setLevel(logging.INFO)
@@ -37,6 +37,7 @@ stream_handler.setFormatter(time_formatter)
 telebot_logger = logging.getLogger('TeleBot')
 telebot_logger.setLevel(logging.WARNING)
 telebot_logger.addHandler(telegram_handler)
+telebot_logger.addHandler(file_handler)
 
 
 @retry(stop=stop_after_attempt(10), wait=wait_exponential(multiplier=1, min=4, max=10))

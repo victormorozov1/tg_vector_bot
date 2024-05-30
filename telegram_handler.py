@@ -1,8 +1,7 @@
 import logging
 
 from telebot import TeleBot
-from telebot.apihelper import ApiException
-from tenacity import retry, RetryError, wait_exponential
+from tenacity import retry, wait_exponential
 
 logger = logging.getLogger('__main__')
 
